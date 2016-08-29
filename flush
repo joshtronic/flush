@@ -1,0 +1,39 @@
+#!/bin/bash
+
+case "$1" in
+  dns)
+    LONGVERSION=$(system_profiler SPSoftwareDataType | awk '/System Version/{print $5}')
+    MINOR=$(echo $LONGVERSION | cut -d. -f2)
+    UPDATE=$(echo $LONGVERSION | cut -d. -f3)
+
+    if (( $MINOR < 7 )); then
+      FLUSH="dscacheutil -flushcache"
+    elif (( $MINOR < 10 )); then
+      FLUSH="killall -HUP mDNSResponder"
+    elif (( $MINOR == 10 )); then
+      if (( $UPDATE < 4 )); then
+        FLUSH="discoveryutil mdnsflushcache"
+      else
+        FLUSH="killall -HUP mDNSResponder"
+      fi
+    else
+      FLUSH="killall -HUP mDNSResponder"
+    fi
+
+    FLUSHING="DNS Cache for $LONGVERSION"
+    FLUSH="sudo $FLUSH"
+    ;;
+  memcached)
+    FLUSHING="Memcached"
+    FLUSH="echo 'flush_all' | nc localhost 11211"
+    ;;
+  *)
+    echo $"Usage: $0 [dns|memcached]"
+    exit 2
+    ;;
+esac
+
+echo "Flushing $FLUSHING... "
+eval $FLUSH
+echo -e "\033[0;32mFlushed!\033[0m"
+
